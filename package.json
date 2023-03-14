@@ -1,0 +1,21 @@
+{
+  "name": "gcs2drive",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "functions-framework --target=gcs2drive"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/storage": "^6.9.4",
+    "fs-extra": "^11.1.0",
+    "google-auth-library": "^8.7.0",
+    "googleapis": "^112.0.0"
+  },
+  "devDependencies": {
+    "@google-cloud/functions-framework": "^3.1.3"
+  }
+}
