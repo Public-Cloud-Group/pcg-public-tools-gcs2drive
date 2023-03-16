@@ -5,7 +5,7 @@ This application is designed to transfer big up to 50 GB files from a **Google C
 This applcation is designed to run cloud-natively on **Google Cloud Functions**. It can be used to transfer files up to a size of 7GB (1. Generation Cloud Function) or 60GB (2. Generation). Nevertheless, this NodeJS Code can be runned on any other runtime as well.
 
 ## Documention
-This script was published as part of a Blogpost of [Cloudwürdig's Blogpost](https://cloudwuerdig.com/blog/) series. The [Blogpost _TITLE_](#) holds additional (German) documentation and experiences.
+This script was published as part of a Blogpost of [Cloudwürdig's Blogpost](https://cloudwuerdig.com/blog/) series. The [Blogpost "_Große Dateien von Google Cloud Storage zu Google Drive übertragen_"](https://cloudwuerdig.com/grosse-dateien-von-google-cloud-storage-zu-google-drive-uebertragen/) holds additional (German) documentation and experiences.
 
 ### Setup
 Run `npm install` to install dependencies.
