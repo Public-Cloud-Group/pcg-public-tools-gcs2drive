@@ -5,10 +5,10 @@ const { GoogleAuth } = require('google-auth-library');
 const { Storage } = require('@google-cloud/storage');
 
 const DRIVEFOLDER = process.env.DRIVEFOLDER || '1FKM7-wkh80DiYv9fk7DfEFBC6KEL5NhV'; // Teamd Drive Folder
-const CHUNK_SIZE = process.env.DRIVEFOLDER || 1024 * 256 * 200; // MUST be multiple of 256kb
+const CHUNK_SIZE = process.env.CHUNK_SIZE || 1024 * 256 * 200; // MUST be multiple of 256kb
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 const SECRET_FILE = 'secret.json'; // set to null for CF (built-in service account)
-const MOVE = true; // move instead of copy
+const MOVE = false; // move instead of copy
 
 let storage, client;
 
@@ -34,7 +34,6 @@ exports.gcs2drive = async (req, res) => {
     }
 
     let object_metadata = await gcs_get_object_metadata(bucket, fileName);
-    console.log(object_metadata);
     let sourceSize = parseInt(object_metadata.size);
     let md5Hash = Buffer.from(object_metadata.md5Hash, 'base64').toString("hex");
     console.log("File size is", (sourceSize / 1000000).toFixed(2), 'MB');
@@ -69,23 +68,21 @@ exports.gcs2drive = async (req, res) => {
         var tempSize = fse.statSync(targetFile).size;
         console.log("Download temp file size is", tempSize);
 
-        /*
-         * only define total size in last upload. the range end-bytes must be one byte smaller than the total
-         */
         result = await drive_upload_resumable(resumableUrl, targetFile, totalByeUpload, startByte, endByte);
 
-        await local_delete_temp(targetFile);
+        // delete temp file to keep memory size low
+        await local_delete(targetFile);
     }
 
     if (result.id) {
         console.log("Created file", result.id);
     }
 
-    // @TODO finalize integrity checking
+    // do integrity checking
     let drive_metadata = await drive_get_metadata(result.id);
     let verified = false;
     let status = "transferred";
-        
+
     if (md5Hash == drive_metadata['md5Checksum']) {
         console.info("Verified: Checksums match");
         verified = true;
@@ -94,35 +91,40 @@ exports.gcs2drive = async (req, res) => {
         status = "checksum_mismatch";
     }
 
-    if (MOVE && verified) {        
+    if (MOVE && verified) {
         await gcs_delete(bucket, fileName);
         console.log("Deleted file", fileName, "from bucket", bucket);
     }
 
-    var response = {'status': status, 'drive_id': result.id};
+    var response = { 'status': status, 'drive_id': result.id };
 
-    console.log("Send respsone", response)
-
+    console.log("Send response", response);
     res.send(response);
 };
 
+/**
+ * intitialize client for Drive REST API
+ */
 async function drive_client() {
-    let auth;
+    let authConfig = { scopes: SCOPES };
+
+    // secret file is configured
     if (SECRET_FILE) {
-        auth = new GoogleAuth({
-            scopes: ['https://www.googleapis.com/auth/drive'],
-            keyFile: SECRET_FILE
-        });
-    } else {
-        auth = new GoogleAuth({
-            scopes: ['https://www.googleapis.com/auth/drive'],
-        });
+        authConfig['keyFile'] = SECRET_FILE;
     }
 
-
+    let auth = new GoogleAuth(authConfig);
     client = await auth.getClient();
 }
 
+/**
+ * start a resumable upload
+ * 
+ * @param {*} fileName 
+ * @param {*} folderId 
+ * @param {*} totalSize 
+ * @returns 
+ */
 async function drive_upload_resumable_init(fileName, folderId, totalSize) {
     let result = await client.request(
         {
@@ -142,6 +144,16 @@ async function drive_upload_resumable_init(fileName, folderId, totalSize) {
     return result.headers.location;
 }
 
+/**
+ * continue a resumable upload
+ * 
+ * @param {*} url 
+ * @param {*} sourceFile 
+ * @param {*} size 
+ * @param {*} startByte 
+ * @param {*} endByte 
+ * @returns 
+ */
 async function drive_upload_resumable(url, sourceFile, size, startByte, endByte) {
     var result = null;
 
@@ -166,8 +178,15 @@ async function drive_upload_resumable(url, sourceFile, size, startByte, endByte)
     return result.data;
 }
 
+/**
+ * get metadata of drive file
+ * 
+ * @param {*} fileId 
+ * @returns 
+ */
 async function drive_get_metadata(fileId) {
-    let url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=md5Checksum%2Csha1Checksum%2Csha256Checksum`;
+    let fields = ['md5Checksum', 'sha1Checksum', 'sha256Checksum'];
+    let url = `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=${fields.join('%2C')}`;
 
     try {
         result = await client.request(
@@ -181,13 +200,19 @@ async function drive_get_metadata(fileId) {
 
     }
 
-    //console.log(result.data);
     return result.data;
 }
 
-
+/**
+ * initialize Google Cloud Storage client
+ */
 async function gcs_init_client() {
-    storage = new Storage();
+    let clientConfig = {};
+    if (SECRET_FILE) {
+        clientConfig['keyFilename'] = SECRET_FILE;
+    }
+
+    storage = new Storage(clientConfig);
 }
 
 /**
@@ -205,11 +230,18 @@ async function gcs_get_object_metadata(bucketName, fileName) {
     return metadata;
 }
 
-
+/**
+ * download byte-range of a GCS object
+ * 
+ * @param {*} bucketName 
+ * @param {*} fileName 
+ * @param {*} targetFile 
+ * @param {*} startByte 
+ * @param {*} endByte 
+ * @returns 
+ */
 async function gcs_download_file(bucketName, fileName, targetFile, startByte, endByte) {
-
     await gcs_init_client();
-    //destFileName = os.tmpdir() + '/' + fileName
 
     async function downloadFile() {
         const options = {
@@ -232,9 +264,14 @@ async function gcs_download_file(bucketName, fileName, targetFile, startByte, en
     return destFileName;
 }
 
-async function gcs_delete(
-    bucketName,
-    fileName) {
+/**
+ * delete a GCS object
+ * 
+ * @param {*} bucketName 
+ * @param {*} fileName 
+ * @returns 
+ */
+async function gcs_delete(bucketName, fileName) {
     const { Storage } = require('@google-cloud/storage');
     const storage = new Storage();
 
@@ -254,10 +291,12 @@ async function gcs_delete(
     return result;
 }
 
-async function local_delete_temp(destFileName) {
+/**
+ * delete a local file
+ * 
+ * @param {*} destFileName 
+ */
+async function local_delete(destFileName) {
     fse.removeSync(destFileName);
     console.log("Removed temp file", destFileName);
 }
-
-
-
