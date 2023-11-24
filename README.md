@@ -1,11 +1,11 @@
-# Public Cloud Group / Cloudwürdig - GCS 2 Drive Transfer Tool
+# Public Cloud Group - GCS 2 Drive Transfer Tool
 This application is designed to transfer big up to 50 GB files from a **Google Cloud Storage Bucket** to **Google Drive** using Byte-Ranges and [Google Drive Resumable Uploads](https://developers.google.com/drive/api/guides/manage-uploads#resumable).
 
 ## Cloud-Native
 This applcation is designed to run cloud-natively on **Google Cloud Functions**. It can be used to transfer files up to a size of 7GB (1. Generation Cloud Function) or 60GB (2. Generation). Nevertheless, this NodeJS Code can be runned on any other runtime as well.
 
 ## Documention
-This script was published as part of a Blogpost of [Cloudwürdig's Blogpost](https://cloudwuerdig.com/blog/) series. The [Blogpost "_Große Dateien von Google Cloud Storage zu Google Drive übertragen_"](https://cloudwuerdig.com/grosse-dateien-von-google-cloud-storage-zu-google-drive-uebertragen/) holds additional (German) documentation and experiences.
+This script was published as part of a Blogpost of [PCG's insights](https://pcg.io/de/insights/?type=articles) series. The [Blogpost "_Große Dateien von Google Cloud Storage zu Google Drive übertragen_"](https://pcg.io/de/insights/grosse-dateien-von-google-cloud-storage-zu-google-drive-uebertragen/) holds additional (German) documentation and experiences.
 
 ### Setup
 Run `npm install` to install dependencies.
@@ -25,7 +25,7 @@ The following variables can be injected using environment variables
 #### Ownership & Google Workspace
 The owner of the uploaded files will be the Service Account, even if the folder belongs to another user. The service account's Google Drive has only 15 GB of space and will be deleted if the Service Account deleted.
 
-If you are a user of a Google Workspace domain, we strongly recommend to transfer the files to a [Shared Drive](https://cloudwuerdig.com/meine-ablage-vs-geteilte-ablagen-in-google-drive/) because then the organization is the owner eventually.
+If you are a user of a Google Workspace domain, we strongly recommend to transfer the files to a [Shared Drive](https://pcg.io/de/insights/meine-ablage-vs-geteilte-ablagen-in-google-drive/) because then the organization is the owner eventually.
 
 ### Run
 This function is designed to run in Google Cloud's Cloud Function. To run the application locally, the *functions-framework* is integrated and the function can be called over an HTTP call. 
